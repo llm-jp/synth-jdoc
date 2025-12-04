@@ -6,5 +6,6 @@ requires-python = ">=3.12"
 dependencies = [
     "datasets==4.4.1",
     "jinja2==3.1.6",
+    "pillow==12.0.0",
     "playwright==1.56.0",
 ]

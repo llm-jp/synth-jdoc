@@ -32,7 +32,7 @@ def main():
     args = parser.parse_args()
     dir_path = args.dir_path
 
-    prompt_path_list = [os.path.join(dir_path, file) for file in sorted(os.listdir(dir_path))][:20]
+    prompt_path_list = [os.path.join(dir_path, file) for file in sorted(os.listdir(dir_path))]
 
     pipe = ZImagePipeline.from_pretrained(
         "Tongyi-MAI/Z-Image-Turbo",
@@ -40,6 +40,7 @@ def main():
         low_cpu_mem_usage=False,
     )
     pipe.to("cuda")
+    pipe.transformer.set_attention_backend("flash")
 
     for prompt_path in tqdm(prompt_path_list):
         with open(prompt_path) as f:

@@ -1,5 +1,4 @@
 import os
-import json
 import argparse
 import random
 
@@ -26,36 +25,14 @@ RES = (
 def main():
     parser = argparse.ArgumentParser()
     parser.add_argument(
-        "--file_path",
+        "--dir_path",
         type=str,
-        default="data/JSSODa/jssoda_train_img_match.jsonl",
-    )
-    parser.add_argument(
-        "--output_path",
-        type=str,
-        default="data/JSSODa/images",
-    )
-    parser.add_argument(
-        "--start_idx",
-        type=int,
-        default=0,
-    )
-    parser.add_argument(
-        "--end_idx",
-        type=int,
-        default=1,
+        required=True,
     )
     args = parser.parse_args()
-    file_path = args.file_path
-    output_path = args.output_path
+    dir_path = args.dir_path
 
-    data_list = []
-    with open(file_path) as f:
-        for line in f:
-            data_list.append(json.loads(line))
-
-    start_idx = args.start_idx
-    end_idx = min(args.end_idx, len(data_list))
+    prompt_path_list = [os.path.join(dir_path, file) for file in sorted(os.listdir(dir_path))][:20]
 
     pipe = ZImagePipeline.from_pretrained(
         "Tongyi-MAI/Z-Image-Turbo",
@@ -64,34 +41,32 @@ def main():
     )
     pipe.to("cuda")
 
-    total_count = sum(
-        1
-        for data in data_list[start_idx:end_idx]
-        for el in data["elements"]
-        if el["type"] == "image"
-    )
-    with tqdm(total=total_count, desc="Generating images:") as pbar:
-        for data in data_list[start_idx:end_idx]:
-            for el in data["elements"]:
-                if el["type"] == "text":
-                    continue
+    for prompt_path in tqdm(prompt_path_list):
+        with open(prompt_path) as f:
+            prompt = f.read()
 
-                prompt = data["elements"][el["text_index"]]["content"]
-                width, height = random.choice(RES)
+        width, height = random.choice(RES)
 
-                image = pipe(
-                    prompt=prompt,
-                    height=height,
-                    width=width,
-                    num_inference_steps=9,
-                    guidance_scale=0.0,
-                    generator=torch.Generator("cuda").manual_seed(42),
-                ).images[0]
+        image = pipe(
+            prompt=prompt,
+            height=height,
+            width=width,
+            num_inference_steps=9,
+            guidance_scale=0.0,
+            generator=torch.Generator("cuda").manual_seed(42),
+        ).images[0]
 
-                img_path = os.path.join(output_path, el["src"])
-                os.makedirs(os.path.dirname(img_path), exist_ok=True)
-                image.save(img_path)
-                pbar.update(1)
+        output_dir = os.path.join(
+            os.path.dirname(os.path.dirname(os.path.dirname(prompt_path))),
+            "images",
+            os.path.basename(os.path.dirname(prompt_path)),
+        )
+        img_path = os.path.join(
+            output_dir,
+            os.path.splitext(os.path.basename(prompt_path))[0].removesuffix("_prompt") + ".jpg",
+        )
+        os.makedirs(os.path.dirname(img_path), exist_ok=True)
+        image.save(img_path)
 
 
 if __name__ == "__main__":

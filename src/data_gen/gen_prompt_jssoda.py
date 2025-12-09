@@ -71,8 +71,6 @@ def main():
         )
         for messages in messages_list
     ]
-    print(messages_list)
-    print(inputs)
 
     llm = LLM(
         model=checkpoint_path,

@@ -88,7 +88,7 @@ def preprocess_elements(elements, is_vertical=False):
     return processed_blocks
 
 
-def generate_random_style_config():
+def generate_random_style_config(**kwargs):
     is_vertical = random.choice([True, False])
     column_count = random.randint(1, 3)
 
@@ -96,6 +96,9 @@ def generate_random_style_config():
     bg_colors = ["#ffffff", "#fafafa", "#fdfbf7", "#f0f0f0", "#fffff0"]
     figure_bg_colors = ["#eef", "#efe", "#fee", "#f0f8ff", "#faf0e6"]
     text_colors = ["#000000", "#1a1a1a", "#333333"]
+
+    bg_color = random.choice(bg_colors)
+    figure_bg_color = random.choice(figure_bg_colors) if random.random() > 0.5 else bg_color
 
     config = {
         "is_vertical": is_vertical,
@@ -105,14 +108,45 @@ def generate_random_style_config():
         "font_family": random.choice(font_families),
         "base_font_size": random.randint(16, 22),
         "line_height": round(random.uniform(1.6, 2.0), 1),
-        "bg_color": random.choice(bg_colors),
-        "figure_bg_color": random.choice(figure_bg_colors),
+        "bg_color": bg_color,
+        "figure_bg_color": figure_bg_color,
         "text_color": random.choice(text_colors),
         "column_gap": random.randint(30, 60),
         "rule_style": "1px solid #ddd" if column_count > 1 else "none",
         "h1_border_style": random.choice(["solid", "double", "dashed"]),
         "h1_border_width": random.randint(2, 6),
+        "image_alignment": random.choice(["left", "center"]),
     }
+
+    config.update(kwargs)
+    config["writing_mode"] = "vertical-rl" if config["is_vertical"] else "horizontal-tb"
+
+    if config["is_vertical"]:
+        view_w, view_h = 100, 800 + 200 * (config["column_count"] - 1)
+        total_len = view_h
+        padding = config["padding"] * 2
+        gap = config["column_gap"] * (config["column_count"] - 1) if config["column_count"] > 1 else 0
+        col_dim = (total_len - padding - gap) / config["column_count"]
+        
+        config["max_img_limit"] = random.randint(
+            min(int(view_h * (1/3)), int(col_dim * (2/3 + 1/3 * (config["column_count"] - 1)))),
+            max(int(view_h * (1/3)), int(col_dim * (2/3 + 1/3 * (config["column_count"] - 1)))),
+        )
+    else:
+        view_w, view_h = 800 + 200 * (config["column_count"] - 1), 100
+        total_len = view_w
+        padding = config["padding"] * 2
+        gap = config["column_gap"] * (config["column_count"] - 1) if config["column_count"] > 1 else 0
+        col_dim = (total_len - padding - gap) / config["column_count"]
+
+        config["max_img_limit"] = random.randint(
+            min(int(view_w * (1/3)), int(col_dim * (2/3 + 1/3 * (config["column_count"] - 1)))),
+            max(int(view_w * (1/3)), int(col_dim * (2/3 + 1/3 * (config["column_count"] - 1)))),
+        )
+
+    config["viewport_width"] = view_w
+    config["viewport_height"] = view_h
+
     return config
 
 
@@ -186,7 +220,7 @@ html_template = """
         display: block;
         background-color: rgba(0,0,0,0.03);
         padding: 5px;
-        text-align: center;
+        text-align: {{ style.image_alignment }};
         margin: 0;
         break-inside: avoid;
         box-sizing: border-box;
@@ -200,12 +234,25 @@ html_template = """
         /* border: 1px solid #ccc; */
         object-fit: contain;
         display: block;
-        margin: 0 auto;
+        /* margin: 0 auto; */
+    }
+
+    figure.normal .content-image {
+        {% if style.image_alignment == 'center' %}
+            margin-inline: auto; /* 横書きなら左右、縦書きなら上下を自動で中央揃え */
+        {% else %}
+            margin-inline: 0;    /* 左寄せ */
+        {% endif %}
+    }
+
+    figure.span-all .content-image {
+        margin-inline: auto;
     }
     
     figcaption { font-size: 0.8em; font-weight: bold; margin-top: 5px; }
 
     figure.normal {
+        background-color: {{ style.figure_bg_color }};
         {% if style.is_vertical %}
             max-height: 100%;
             max-width: 100%;
@@ -223,6 +270,7 @@ html_template = """
         display: block; 
         background-color: {{ style.figure_bg_color }};
         box-sizing: border-box;
+        text-align: center;
         
         {% if style.is_vertical %}
             height: calc(100vh - {{ style.padding * 2 }}px);
@@ -257,12 +305,12 @@ html_template = """
                     {% elif element.type == 'image' %}
                         {% if element.span_all and not style.is_vertical %}
                              <figure class="span-all">
-                                <img src="{{ element.src }}" class="content-image" style="max-height:400px; object-fit:contain;">
+                                <img src="{{ element.src }}" class="content-image" style="max-height:{{ style.max_img_limit }}px; object-fit:contain;">
                                 {% if element.caption %}<figcaption>{{ element.caption }}</figcaption>{% endif %}
                             </figure>
                         {% else %}
                             <figure class="normal">
-                                <img src="{{ element.src }}" class="content-image">
+                                <img src="{{ element.src }}" class="content-image" style="{{ 'max-width' if style.is_vertical else 'max-height' }}: {{ style.max_img_limit }}px;">
                                 {% if element.caption %}<figcaption>{{ element.caption }}</figcaption>{% endif %}
                             </figure>
                         {% endif %}
@@ -271,7 +319,7 @@ html_template = """
             </div>
         {% elif block.type == 'fullwidth' %}
             <figure class="span-all">
-                <img src="{{ block.element.src }}" class="content-image" style="max-height:90%; max-width:600px;">
+                <img src="{{ block.element.src }}" class="content-image" style="max-height:90%; max-width:{{ style.max_img_limit }}px;">
                 {% if block.element.caption %}<figcaption>{{ block.element.caption }}</figcaption>{% endif %}
             </figure>
         {% endif %}
@@ -346,17 +394,18 @@ async def main():
                             el["span_all"] = True
 
             # スタイルをランダム生成
-            style_config = generate_random_style_config()
-            style_config["is_vertical"] = content_data["is_vertical"]
-            style_config["writing_mode"] = "vertical-rl" if style_config["is_vertical"] else "horizontal-tb"
-            style_config["column_count"] = content_data["column_count"]
+            style_config = generate_random_style_config(
+                is_vertical=content_data["is_vertical"],
+                column_count=content_data["column_count"]
+            )
 
             # ページの作成
-            if content_data["is_vertical"]:
-                view_w, view_h = 100, 800 + 200 * (style_config["column_count"] - 1)
-            else:
-                view_w, view_h = 800 + 200 * (style_config["column_count"] - 1), 100
-            context = await browser.new_context(viewport={'width': view_w, 'height': view_h})
+            context = await browser.new_context(
+                viewport={
+                    'width': style_config["viewport_width"], 
+                    'height': style_config["viewport_height"]
+                }
+            )
             page = await context.new_page()
 
             processed_blocks = preprocess_elements(

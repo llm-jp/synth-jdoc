@@ -111,8 +111,8 @@ def to_fullwidth(number):
 
 
 def apply_vertical_formatting(text):
-    jp_chars = r'[\u3000-\u303f\u3040-\u309f\u30a0-\u30ff\u4e00-\u9fff\uff01-\uff0f\uff1a-\uffef]'
-    pattern = f'(?<={jp_chars})\d{{1,3}}(?={jp_chars})'
+    jp_chars = r'[ \u3000-\u303f\u3040-\u309f\u30a0-\u30ff\u4e00-\u9fff\uff01-\uff0f\uff1a-\uffef]'
+    pattern = f'(?:^|(?<={jp_chars}))\d{{1,3}}(?={jp_chars})'
     def replace_tcy(match):
         return f'<span class="tcy">{unicodedata.normalize("NFKC", match.group(0))}</span>'
     return re.sub(pattern, replace_tcy, text)
@@ -127,6 +127,9 @@ def preprocess_elements(elements, is_vertical=False):
         
         if is_vertical and el.get('type') == 'text':
             el['content'] = apply_vertical_formatting(el['content'])
+        
+        if is_vertical and el.get('type') == 'image' and el.get('caption'):
+            el['caption'] = apply_vertical_formatting(el['caption'])
 
         is_fullwidth_image = (el.get('type') == 'image' and el.get('span_all') is True)
 
@@ -371,12 +374,12 @@ html_template = """
                         {% if element.span_all and not style.is_vertical %}
                              <figure class="span-all">
                                 <img src="{{ element.src }}" class="content-image" style="max-height:{{ style.max_img_limit }}px; object-fit:contain;">
-                                {% if element.caption %}<figcaption>{{ element.caption }}</figcaption>{% endif %}
+                                {% if element.caption %}<figcaption>{{ element.caption | safe }}</figcaption>{% endif %}
                             </figure>
                         {% else %}
                             <figure class="normal">
                                 <img src="{{ element.src }}" class="content-image" style="{{ 'max-width' if style.is_vertical else 'max-height' }}: {{ style.max_img_limit }}px;">
-                                {% if element.caption %}<figcaption>{{ element.caption }}</figcaption>{% endif %}
+                                {% if element.caption %}<figcaption>{{ element.caption | safe }}</figcaption>{% endif %}
                             </figure>
                         {% endif %}
                     {% endif %}
@@ -385,7 +388,7 @@ html_template = """
         {% elif block.type == 'fullwidth' %}
             <figure class="span-all">
                 <img src="{{ block.element.src }}" class="content-image" style="max-height:90%; max-width:{{ style.max_img_limit }}px;">
-                {% if block.element.caption %}<figcaption>{{ block.element.caption }}</figcaption>{% endif %}
+                {% if block.element.caption %}<figcaption>{{ block.element.caption | safe }}</figcaption>{% endif %}
             </figure>
         {% endif %}
     {% endfor %}

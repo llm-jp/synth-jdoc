@@ -48,6 +48,62 @@ CAPTION_STYLES = [
     lambda h, f, k, t, v: f"{'▶' if v else '▲'} {t}",
 ]
 FIG_PATTERN = r"^図\s*(?:\d+[：:\.\s]*|[：:\.\s]+)"
+FONT_CANDIDATES = [
+    # sans-serif
+    {"name": "BIZ UDGothic", "family": "sans-serif"},
+    {"name": "BIZ UDPGothic", "family": "sans-serif"},
+    {"name": "Dela Gothic One", "family": "sans-serif"},
+    {"name": "DotGothic16", "family": "sans-serif"},
+    {"name": "IBM Plex Sans JP", "family": "sans-serif"},
+    {"name": "Kiwi Maru", "family": "serif"},
+    {"name": "Kosugi", "family": "sans-serif"},
+    {"name": "Kosugi Maru", "family": "sans-serif"},
+    {"name": "M PLUS 1", "family": "sans-serif"},
+    {"name": "M PLUS 1p", "family": "sans-serif"},
+    {"name": "M PLUS 2", "family": "sans-serif"},
+    {"name": "M PLUS Rounded 1c", "family": "sans-serif"},
+    {"name": "Mochiy Pop One", "family": "sans-serif"},
+    {"name": "Mochiy Pop P One", "family": "sans-serif"},
+    {"name": "Murecho", "family": "sans-serif"},
+    {"name": "Noto Sans JP", "family": "sans-serif"},
+    {"name": "Rampart One", "family": "sans-serif"},
+    {"name": "RocknRoll One", "family": "sans-serif"},
+    {"name": "Sawarabi Gothic", "family": "sans-serif"},
+    {"name": "Shippori Antique", "family": "sans-serif"},
+    {"name": "Shippori Antique B1", "family": "sans-serif"},
+    {"name": "Stick", "family": "sans-serif"},
+    {"name": "Yusei Magic", "family": "sans-serif"},
+    {"name": "Zen Kaku Gothic Antique", "family": "sans-serif"},
+    {"name": "Zen Kaku Gothic New", "family": "sans-serif"},
+    {"name": "Zen Kurenaido", "family": "sans-serif"},
+    {"name": "Zen Maru Gothic", "family": "sans-serif"},
+    # serif
+    {"name": "BIZ UDMincho", "family": "serif"},
+    {"name": "BIZ UDPMincho", "family": "serif"},
+    {"name": "Hina Mincho", "family": "serif"},
+    {"name": "Kaisei Decol", "family": "serif"},
+    {"name": "Kaisei HarunoUmi", "family": "serif"},
+    {"name": "Kaisei Opti", "family": "serif"},
+    {"name": "Kaisei Tokumin", "family": "serif"},
+    {"name": "New Tegomin", "family": "serif"},
+    {"name": "Noto Serif JP", "family": "serif"},
+    {"name": "Shippori Mincho", "family": "serif"},
+    {"name": "Shippori Mincho B1", "family": "serif"},
+    {"name": "Yuji Boku", "family": "serif"},
+    {"name": "Yuji Mai", "family": "serif"},
+    {"name": "Yuji Syuku", "family": "serif"},
+    {"name": "Zen Antique", "family": "serif"},
+    {"name": "Zen Antique Soft", "family": "serif"},
+    {"name": "Zen Old Mincho", "family": "serif"},
+    # cursive
+    {"name": "Hachi Maru Pop", "family": "cursive"},
+    {"name": "Klee One", "family": "cursive"},
+    # monospace
+    {"name": "M PLUS 1 Code", "family": "monospace"},
+    # system-ui
+    {"name": "Potta One", "family": "system-ui"},
+    {"name": "Reggae One", "family": "system-ui"},
+]
 
 
 def to_fullwidth(number):
@@ -92,10 +148,17 @@ def generate_random_style_config(**kwargs):
     is_vertical = random.choice([True, False])
     column_count = random.randint(1, 3)
 
-    font_families = ["'Noto Serif JP', serif", "'Noto Sans JP', sans-serif"]
     bg_colors = ["#ffffff", "#fafafa", "#fdfbf7", "#f0f0f0", "#fffff0"]
     figure_bg_colors = ["#eef", "#efe", "#fee", "#f0f8ff", "#faf0e6"]
     text_colors = ["#000000", "#1a1a1a", "#333333"]
+
+    selected_font = random.choice(FONT_CANDIDATES)
+    font_name = selected_font["name"]
+    font_generic_family = selected_font["family"]
+
+    font_family_css = f"'{font_name}', {font_generic_family}"
+    font_param = font_name.replace(" ", "+")
+    font_url = f"https://fonts.googleapis.com/css2?family={font_param}:wght@400&display=swap"
 
     bg_color = random.choice(bg_colors)
     figure_bg_color = random.choice(figure_bg_colors) if random.random() > 0.5 else bg_color
@@ -105,7 +168,8 @@ def generate_random_style_config(**kwargs):
         "writing_mode": "vertical-rl" if is_vertical else "horizontal-tb",
         "column_count": column_count,
         "padding": random.randint(30, 60),
-        "font_family": random.choice(font_families),
+        "font_family": font_family_css,
+        "font_url": font_url,
         "base_font_size": random.randint(16, 22),
         "line_height": round(random.uniform(1.6, 2.0), 1),
         "bg_color": bg_color,
@@ -155,9 +219,10 @@ html_template = """
 <html lang="ja">
 <head>
 <meta charset="UTF-8">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="{{ style.font_url }}" rel="stylesheet">
 <style>
-    @import url('https://fonts.googleapis.com/css2?family=Noto+Serif+JP:wght@400;700&family=Noto+Sans+JP:wght@400;700&display=swap');
-
     html { height: 100%; margin: 0; }
 
     body {
@@ -212,7 +277,7 @@ html_template = """
 
     .tcy {
         text-combine-upright: all;
-        font-family: "'Noto Sans JP', sans-serif";
+        font-family: {{ style.font_family }};
         margin: 2px 0;
     }
 

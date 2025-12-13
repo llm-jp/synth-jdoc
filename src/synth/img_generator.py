@@ -362,7 +362,7 @@ html_template = """
 </style>
 </head>
 <body>
-    <h1>{{ data.title }}</h1>
+    <h1 data-id="title">{{ data.title }}</h1>
     
     {% for block in processed_blocks %}
         {% if block.type == 'multicolumn' %}
@@ -402,6 +402,7 @@ async def main():
     output_dir = "data/JSSODa/html_images"
     image_dir = "data/JSSODa/images"
     caption_dir = "data/JSSODa/captions"
+    title_dir = "data/JSSODa/titles"
 
     os.makedirs(output_dir, exist_ok=True)
 
@@ -417,6 +418,15 @@ async def main():
         template = Template(html_template)
 
         for original_data in tqdm(data_list, desc="Generating images"):
+            # load title
+            with open(
+                os.path.join(
+                    title_dir,
+                    f"{original_data['id'][:3]}/{original_data['id']}_title.txt",
+                )
+            ) as f:
+                original_data["title"] = f.read()
+
             content_data = copy.deepcopy(original_data)
 
             caption_dict = {}
@@ -426,6 +436,7 @@ async def main():
                 if el["type"] == "image":
                     image_idx += 1
 
+                    # load caption
                     caption_path = os.path.join(caption_dir, os.path.splitext(el["src"])[0] + "_cap.txt")
                     if os.path.exists(caption_path):
                         with open(caption_path) as f:
@@ -441,6 +452,7 @@ async def main():
                     el["caption"] = cap
                     caption_dict[el["src"]] = cap
 
+                    # load image
                     image_path = os.path.join(image_dir, el["src"])
                     if os.path.exists(image_path):
                         mime_type, _ = mimetypes.guess_type(image_path)
@@ -495,7 +507,6 @@ async def main():
             with open(os.path.join(output_dir, f"{base_filename}.html"), "w", encoding="utf-8") as f:
                 f.write(html_content)
 
-            # 画像生成
             await page.set_content(html_content, wait_until="networkidle")
 
             bboxes_map = await page.evaluate('''() => {
@@ -505,8 +516,6 @@ async def main():
                 const isInside = (x, y, rect) => {
                     return (x >= rect.left && x <= rect.right && y >= rect.top && y <= rect.bottom);
                 };
-
-                // ... 中略 (createLineBoxes, createCharBoxes, mapTextToLineBoxes はそのまま) ...
 
                 const createLineBoxes = (rects) => {
                     const list = [];
@@ -698,11 +707,21 @@ async def main():
 
                 final_elements.append(el_copy)
 
+            # 画像生成
             await page.screenshot(path=os.path.join(output_dir, f"{base_filename}.png"), full_page=True)
-            
+
+            title_bboxes = []
+            title_char_bboxes = []
+            if "title" in bboxes_map:
+                title_bboxes = bboxes_map["title"].get("lines", [])
+                title_char_bboxes = bboxes_map["title"].get("chars", [])
+
             label_data = {
                 "id": base_filename,
                 "style": style_config,
+                "title": content_data["title"],
+                "title_bboxes": title_bboxes,
+                "title_char_bboxes": title_char_bboxes,
                 "elements": final_elements,
             }
             with open(os.path.join(output_dir, f"{base_filename}.json"), "w", encoding="utf-8") as f:

@@ -10,3 +10,5 @@
     - `src/data_gen/gen_img_jssoda.py`
 5. 画像のキャプションを生成
     - `src/data_gen/gen_caption_jssoda.py`
+6. タイトルを生成
+    - `src/data_gen/gen_title_jssoda.py`

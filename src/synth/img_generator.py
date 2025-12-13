@@ -122,8 +122,9 @@ def preprocess_elements(elements, is_vertical=False):
     processed_blocks = []
     current_multicolumn_block = []
 
-    for element in elements:
+    for i, element in enumerate(elements):
         el = element.copy()
+        el['id'] = i
         
         if is_vertical and el.get('type') == 'text':
             el['content'] = apply_vertical_formatting(el['content'])
@@ -368,16 +369,16 @@ html_template = """
             <div class="content-body">
                 {% for element in block.elements %}
                     {% if element.type == 'text' %}
-                        <p>{{ element.content | safe }}</p>
+                        <p data-id="{{ element.id }}">{{ element.content | safe }}</p>
                     
                     {% elif element.type == 'image' %}
                         {% if element.span_all and not style.is_vertical %}
-                             <figure class="span-all">
+                             <figure class="span-all" data-id="{{ element.id }}">
                                 <img src="{{ element.src }}" class="content-image" style="max-height:{{ style.max_img_limit }}px; object-fit:contain;">
                                 {% if element.caption %}<figcaption>{{ element.caption | safe }}</figcaption>{% endif %}
                             </figure>
                         {% else %}
-                            <figure class="normal">
+                            <figure class="normal" data-id="{{ element.id }}">
                                 <img src="{{ element.src }}" class="content-image" style="{{ 'max-width' if style.is_vertical else 'max-height' }}: {{ style.max_img_limit }}px;">
                                 {% if element.caption %}<figcaption>{{ element.caption | safe }}</figcaption>{% endif %}
                             </figure>
@@ -386,7 +387,7 @@ html_template = """
                 {% endfor %}
             </div>
         {% elif block.type == 'fullwidth' %}
-            <figure class="span-all">
+            <figure class="span-all" data-id="{{ block.element.id }}">
                 <img src="{{ block.element.src }}" class="content-image" style="max-height:90%; max-width:{{ style.max_img_limit }}px;">
                 {% if block.element.caption %}<figcaption>{{ block.element.caption | safe }}</figcaption>{% endif %}
             </figure>
@@ -418,25 +419,14 @@ async def main():
         for original_data in tqdm(data_list, desc="Generating images"):
             content_data = copy.deepcopy(original_data)
 
+            caption_dict = {}
             selected_formatter = random.choice(CAPTION_STYLES)
             image_idx = 0
             for el in content_data["elements"]:
                 if el["type"] == "image":
                     image_idx += 1
 
-                    image_path = os.path.join(image_dir, el["src"])
                     caption_path = os.path.join(caption_dir, os.path.splitext(el["src"])[0] + "_cap.txt")
-
-                    if os.path.exists(image_path):
-                        mime_type, _ = mimetypes.guess_type(image_path)
-                        if mime_type is None:
-                            mime_type = "image/png"
-                        with open(image_path, "rb") as img_file:
-                            b64_data = base64.b64encode(img_file.read()).decode('utf-8')
-                            el["src"] = f"data:{mime_type};base64,{b64_data}"
-                    else:
-                        raise ValueError(f"Image not found at {image_path}")
-
                     if os.path.exists(caption_path):
                         with open(caption_path) as f:
                             cap = f.read()
@@ -449,6 +439,18 @@ async def main():
                     val_half = image_idx
                     cap = selected_formatter(val_half, val_full, val_kanji, cap, content_data["is_vertical"])
                     el["caption"] = cap
+                    caption_dict[el["src"]] = cap
+
+                    image_path = os.path.join(image_dir, el["src"])
+                    if os.path.exists(image_path):
+                        mime_type, _ = mimetypes.guess_type(image_path)
+                        if mime_type is None:
+                            mime_type = "image/png"
+                        with open(image_path, "rb") as img_file:
+                            b64_data = base64.b64encode(img_file.read()).decode('utf-8')
+                            el["src"] = f"data:{mime_type};base64,{b64_data}"
+                    else:
+                        raise ValueError(f"Image not found at {image_path}")
 
                     img = Image.open(image_path)
                     width, height = img.size
@@ -493,19 +495,218 @@ async def main():
             with open(os.path.join(output_dir, f"{base_filename}.html"), "w", encoding="utf-8") as f:
                 f.write(html_content)
 
-            # JSON保存
+            # 画像生成
+            await page.set_content(html_content, wait_until="networkidle")
+
+            bboxes_map = await page.evaluate('''() => {
+                const results = {};
+                const rootRect = document.documentElement.getBoundingClientRect();
+                
+                const isInside = (x, y, rect) => {
+                    return (x >= rect.left && x <= rect.right && y >= rect.top && y <= rect.bottom);
+                };
+
+                // ... 中略 (createLineBoxes, createCharBoxes, mapTextToLineBoxes はそのまま) ...
+
+                const createLineBoxes = (rects) => {
+                    const list = [];
+                    for (let i = 0; i < rects.length; i++) {
+                        const r = rects[i];
+                        if (r.width > 0 && r.height > 0) {
+                            list.push({
+                                rawRect: r,
+                                x: r.x - rootRect.x,
+                                y: r.y - rootRect.y,
+                                width: r.width,
+                                height: r.height,
+                                text: ""
+                            });
+                        }
+                    }
+                    return list;
+                };
+                
+                const createCharBoxes = (rootNode) => {
+                    const list = [];
+                    const treeWalker = document.createTreeWalker(rootNode, NodeFilter.SHOW_TEXT, null, false);
+                    let textNode;
+                    while (textNode = treeWalker.nextNode()) {
+                        const str = textNode.nodeValue;
+                        for (let i = 0; i < str.length; i++) {
+                            const range = document.createRange();
+                            range.setStart(textNode, i);
+                            range.setEnd(textNode, i + 1);
+                            const rect = range.getBoundingClientRect();
+                            
+                            if (rect.width > 0 && rect.height > 0) {
+                                list.push({
+                                    text: str[i],
+                                    x: rect.x - rootRect.x,
+                                    y: rect.y - rootRect.y,
+                                    width: rect.width,
+                                    height: rect.height
+                                });
+                            }
+                        }
+                    }
+                    return list;
+                };
+
+                const mapTextToLineBoxes = (rootNode, boxes) => {
+                    const treeWalker = document.createTreeWalker(rootNode, NodeFilter.SHOW_TEXT, null, false);
+                    let textNode;
+                    while (textNode = treeWalker.nextNode()) {
+                        const str = textNode.nodeValue;
+                        for (let i = 0; i < str.length; i++) {
+                            const range = document.createRange();
+                            range.setStart(textNode, i);
+                            range.setEnd(textNode, i + 1);
+                            const charRect = range.getBoundingClientRect();
+                            const cx = charRect.left + charRect.width / 2;
+                            const cy = charRect.top + charRect.height / 2;
+
+                            for (let b = 0; b < boxes.length; b++) {
+                                if (isInside(cx, cy, boxes[b].rawRect)) {
+                                    boxes[b].text += str[i];
+                                    break;
+                                }
+                            }
+                        }
+                    }
+                };
+
+                document.querySelectorAll('[data-id]').forEach(el => {
+                    const id = el.getAttribute('data-id');
+                    let lineBoxes = [];
+                    let charBoxes = [];
+
+                    if (el.tagName === 'FIGURE') {
+                        // === 画像要素 ===
+                        const img = el.querySelector('img');
+                        if (img) {
+                            lineBoxes.push(...createLineBoxes(img.getClientRects()));
+                        }
+                        
+                        // === キャプション要素 ===
+                        const figcaption = el.querySelector('figcaption');
+                        if (figcaption) {
+                            // 1. Line/Block Boxes
+                            const range = document.createRange();
+                            range.selectNodeContents(figcaption);
+                            const capLineBoxes = createLineBoxes(range.getClientRects());
+                            mapTextToLineBoxes(figcaption, capLineBoxes);
+
+                            // 行統合処理
+                            if (capLineBoxes.length > 0) {
+                                let minX = Infinity, minY = Infinity;
+                                let maxX = -Infinity, maxY = -Infinity;
+                                let combinedText = "";
+
+                                capLineBoxes.forEach(box => {
+                                    if (box.x < minX) minX = box.x;
+                                    if (box.y < minY) minY = box.y;
+                                    if (box.x + box.width > maxX) maxX = box.x + box.width;
+                                    if (box.y + box.height > maxY) maxY = box.y + box.height;
+                                    combinedText += box.text;
+                                });
+
+                                lineBoxes.push({
+                                    x: minX,
+                                    y: minY,
+                                    width: maxX - minX,
+                                    height: maxY - minY,
+                                    text: combinedText
+                                });
+                            }
+                            
+                            // 2. Char Boxes
+                            charBoxes = createCharBoxes(figcaption);
+                        }
+                    } else {
+                        // 1. Line/Block Boxes
+                        lineBoxes = createLineBoxes(el.getClientRects());
+                        mapTextToLineBoxes(el, lineBoxes);
+                        
+                        // 2. Char Boxes
+                        charBoxes = createCharBoxes(el);
+                    }
+
+                    lineBoxes = lineBoxes.map(line => {
+                        let minX = Infinity;
+                        let minY = Infinity;
+                        let maxX = -Infinity;
+                        let maxY = -Infinity;
+                        let hasChars = false;
+
+                        // この行(line)に含まれる文字(char)を探して、その包含矩形を計算
+                        for (let i = 0; i < charBoxes.length; i++) {
+                            const c = charBoxes[i];
+                            // 厳密な包含ではなく、交差(Intersection)判定で所属を確認
+                            const intersects = (
+                                c.x < line.x + line.width &&
+                                c.x + c.width > line.x &&
+                                c.y < line.y + line.height &&
+                                c.y + c.height > line.y
+                            );
+
+                            if (intersects) {
+                                hasChars = true;
+                                if (c.x < minX) minX = c.x;
+                                if (c.y < minY) minY = c.y;
+                                if (c.x + c.width > maxX) maxX = c.x + c.width;
+                                if (c.y + c.height > maxY) maxY = c.y + c.height;
+                            }
+                        }
+
+                        // 対応する文字が見つかった場合のみ座標を更新
+                        if (hasChars) {
+                            return {
+                                ...line, // 元のプロパティ(textなど)を維持
+                                x: minX,
+                                y: minY,
+                                width: maxX - minX,
+                                height: maxY - minY
+                            };
+                        }
+                        
+                        // 文字が見つからない（スペースのみの行など）場合は元のまま返す
+                        return line;
+                    });
+
+                    results[id] = {
+                        lines: lineBoxes.map(({rawRect, ...rest}) => rest),
+                        chars: charBoxes
+                    };
+                });
+                return results;
+            }''')
+
+            final_elements = []
+            for i, el in enumerate(original_data['elements']):
+                el_copy = el.copy()
+
+                if str(i) in bboxes_map:
+                    bbox_data = bboxes_map[str(i)]
+                    el_copy['bboxes'] = bbox_data.get('lines', [])
+                    el_copy['char_bboxes'] = bbox_data.get('chars', [])
+                else:
+                    el_copy['bboxes'] = []
+                    el_copy['char_bboxes'] = []
+                
+                if el_copy['type'] == 'image':
+                    el_copy['caption'] = caption_dict[el_copy['src']]
+
+                final_elements.append(el_copy)
+
+            await page.screenshot(path=os.path.join(output_dir, f"{base_filename}.png"), full_page=True)
+            
             label_data = {
                 "id": base_filename,
-                "elements": original_data['elements'],
                 "style": style_config,
+                "elements": final_elements,
             }
             with open(os.path.join(output_dir, f"{base_filename}.json"), "w", encoding="utf-8") as f:
                 json.dump(label_data, f, ensure_ascii=False, indent=2)
-
-            # 画像生成
-            await page.set_content(html_content, wait_until="networkidle")
-            await page.screenshot(path=os.path.join(output_dir, f"{base_filename}.png"), full_page=True)
-
 
         await browser.close()
 

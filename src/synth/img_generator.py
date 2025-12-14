@@ -622,7 +622,9 @@ async def main():
                         // === 画像要素 ===
                         const img = el.querySelector('img');
                         if (img) {
-                            lineBoxes.push(...createLineBoxes(img.getClientRects()));
+                            const imgBoxes = createLineBoxes(img.getClientRects());
+                            imgBoxes.forEach(box => box.isImage = true);
+                            lineBoxes.push(...imgBoxes);
                         }
                         
                         // === キャプション要素 ===
@@ -670,6 +672,10 @@ async def main():
                     }
 
                     lineBoxes = lineBoxes.map(line => {
+                        if (line.isImage) {
+                            return line;
+                        }
+
                         let minX = Infinity;
                         let minY = Infinity;
                         let maxX = -Infinity;
@@ -712,7 +718,7 @@ async def main():
                     });
 
                     results[id] = {
-                        lines: lineBoxes.map(({rawRect, ...rest}) => rest),
+                        lines: lineBoxes.map(({rawRect, isImage, ...rest}) => rest),
                         chars: charBoxes
                     };
                 });

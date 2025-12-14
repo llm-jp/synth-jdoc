@@ -110,6 +110,30 @@ def to_fullwidth(number):
     return str(number).translate(str.maketrans("0123456789", "０１２３４５６７８９"))
 
 
+def remove_outer_brackets(text: str, start_char: str = "「", end_char: str = "」"):
+    """
+    文字列全体が「」で囲まれている場合のみ、その両端の「」を除去する。
+    `「A」と「B」` のように、途中で括弧が閉じる場合は除去しない。
+    """
+    text = text.strip()
+    if not (text.startswith(start_char) and text.endswith(end_char)):
+        return text
+
+    depth = 0
+    for i, char in enumerate(text[:-1]):
+        if char == start_char:
+            depth += 1
+        elif char == end_char:
+            depth -= 1
+        
+        # 最初の「 が、文字列の途中で閉じてしまった場合
+        if depth == 0 and i > 0:
+            return text
+
+    # 最後まで depth が 0 にならずに到達できた場合のみ除去
+    return text[1:-1]
+
+
 def apply_vertical_formatting(text):
     jp_chars = r'[ \u3000-\u303f\u3040-\u309f\u30a0-\u30ff\u4e00-\u9fff\uff01-\uff0f\uff1a-\uffef]'
     pattern = f'(?:^|(?<={jp_chars}))\d{{1,3}}(?={jp_chars})'
@@ -167,6 +191,8 @@ def generate_random_style_config(**kwargs):
     bg_color = random.choice(bg_colors)
     figure_bg_color = random.choice(figure_bg_colors) if random.random() > 0.5 else bg_color
 
+    show_title = random.choice([True, False])
+
     config = {
         "is_vertical": is_vertical,
         "writing_mode": "vertical-rl" if is_vertical else "horizontal-tb",
@@ -184,6 +210,7 @@ def generate_random_style_config(**kwargs):
         "h1_border_style": random.choice(["solid", "double", "dashed"]),
         "h1_border_width": random.randint(2, 6),
         "image_alignment": random.choice(["left", "center"]),
+        "show_title": show_title,
     }
 
     config.update(kwargs)
@@ -362,8 +389,9 @@ html_template = """
 </style>
 </head>
 <body>
-    <h1 data-id="title">{{ data.title }}</h1>
-    
+    {% if style.show_title %}
+        <h1 data-id="title">{{ data.title }}</h1>
+    {% endif %}
     {% for block in processed_blocks %}
         {% if block.type == 'multicolumn' %}
             <div class="content-body">
@@ -425,7 +453,8 @@ async def main():
                     f"{original_data['id'][:3]}/{original_data['id']}_title.txt",
                 )
             ) as f:
-                original_data["title"] = f.read()
+                raw_title = f.read()
+            original_data["title"] = remove_outer_brackets(raw_title)
 
             content_data = copy.deepcopy(original_data)
 

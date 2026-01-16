@@ -191,7 +191,15 @@ def generate_random_style_config(**kwargs):
     bg_color = random.choice(bg_colors)
     figure_bg_color = random.choice(figure_bg_colors) if random.random() > 0.5 else bg_color
 
-    show_title = random.choice([True, False])
+    show_title = random.choice([True, False, False, False])
+
+    rule_colors = ["#dddddd", "#cccccc", "#aaaaaa", "#888888", "#666666", "#333333"]
+    selected_rule_color = random.choice(rule_colors)
+    rule_width = random.randint(0, 2)
+    if column_count > 1 and rule_width > 0:
+        rule_style = f"{rule_width}px solid {selected_rule_color}"
+    else:
+        rule_style = "none"
 
     config = {
         "is_vertical": is_vertical,
@@ -200,13 +208,14 @@ def generate_random_style_config(**kwargs):
         "padding": random.randint(30, 60),
         "font_family": font_family_css,
         "font_url": font_url,
-        "base_font_size": random.randint(16, 22),
+        "base_font_size": random.randint(18, 24),
         "line_height": round(random.uniform(1.6, 2.0), 1),
         "bg_color": bg_color,
         "figure_bg_color": figure_bg_color,
         "text_color": random.choice(text_colors),
-        "column_gap": random.randint(30, 60),
-        "rule_style": "1px solid #ddd" if column_count > 1 else "none",
+        "column_gap": random.randint(35, 60),
+        "rule_style": rule_style,
+        "h1_decoration": random.choice(["left", "bottom", "none"]),
         "h1_border_style": random.choice(["solid", "double", "dashed"]),
         "h1_border_width": random.randint(2, 6),
         "image_alignment": random.choice(["left", "center"]),
@@ -277,13 +286,28 @@ html_template = """
     }
 
     h1 {
-        font-size: {{ style.base_font_size * 1.6 }}px;
+        font-size: {{ style.base_font_size * 1.6 | round | int }}px;
         font-weight: 700;
-        border-left: {{ style.h1_border_width }}px {{ style.h1_border_style }} {{ style.text_color }};
-        padding-left: 15px;
         margin-left: 10px;
         margin-bottom: 30px;
         flex-shrink: 0;
+        {% if style.h1_decoration == 'left' %}
+            {% if style.is_vertical %}
+                border-top: {{ style.h1_border_width }}px {{ style.h1_border_style }} {{ style.text_color }};
+                padding-top: 15px;
+            {% else %}
+                border-left: {{ style.h1_border_width }}px {{ style.h1_border_style }} {{ style.text_color }};
+                padding-left: 15px;
+            {% endif %}
+        {% elif style.h1_decoration == 'bottom' %}
+            {% if style.is_vertical %}
+                border-left: {{ style.h1_border_width }}px {{ style.h1_border_style }} {{ style.text_color }};
+                padding-left: 10px;
+            {% else %}
+                border-bottom: {{ style.h1_border_width }}px {{ style.h1_border_style }} {{ style.text_color }};
+                padding-bottom: 10px;
+            {% endif %}
+        {% endif %}
     }
 
     .content-body {
@@ -294,7 +318,7 @@ html_template = """
         line-height: {{ style.line_height }};
         text-align: justify;
         column-fill: balance;
-        
+
         {% if style.is_vertical %}
             height: calc(100vh - {{ style.padding * 2 }}px);
             width: auto;
@@ -321,30 +345,28 @@ html_template = """
         break-inside: avoid;
         box-sizing: border-box;
     }
-    
+
     .content-image { 
         max-width: 100%; 
         max-height: 100%; 
         width: auto; 
         height: auto; 
-        /* border: 1px solid #ccc; */
         object-fit: contain;
         display: block;
-        /* margin: 0 auto; */
     }
 
     figure.normal .content-image {
         {% if style.image_alignment == 'center' %}
-            margin-inline: auto; /* 横書きなら左右、縦書きなら上下を自動で中央揃え */
+            margin-inline: auto;
         {% else %}
-            margin-inline: 0;    /* 左寄せ */
+            margin-inline: 0;
         {% endif %}
     }
 
     figure.span-all .content-image {
         margin-inline: auto;
     }
-    
+
     figcaption { font-size: 0.8em; font-weight: bold; margin-top: 5px; }
 
     figure.normal {
@@ -361,13 +383,13 @@ html_template = """
             height: auto;
         {% endif %}
     }
-    
+
     figure.span-all {
         display: block; 
         background-color: {{ style.figure_bg_color }};
         box-sizing: border-box;
         text-align: center;
-        
+
         {% if style.is_vertical %}
             height: calc(100vh - {{ style.padding * 2 }}px);
             width: auto;
@@ -398,10 +420,9 @@ html_template = """
                 {% for element in block.elements %}
                     {% if element.type == 'text' %}
                         <p data-id="{{ element.id }}">{{ element.content | safe }}</p>
-                    
                     {% elif element.type == 'image' %}
                         {% if element.span_all and not style.is_vertical %}
-                             <figure class="span-all" data-id="{{ element.id }}">
+                            <figure class="span-all" data-id="{{ element.id }}">
                                 <img src="{{ element.src }}" class="content-image" style="max-height:{{ style.max_img_limit }}px; object-fit:contain;">
                                 {% if element.caption %}<figcaption>{{ element.caption | safe }}</figcaption>{% endif %}
                             </figure>
@@ -427,12 +448,14 @@ html_template = """
 
 
 async def main():
-    output_dir = "data/JSSODa/html_images"
+    output_dir = "data/JSSODa/export"
     image_dir = "data/JSSODa/images"
     caption_dir = "data/JSSODa/captions"
     title_dir = "data/JSSODa/titles"
 
-    os.makedirs(output_dir, exist_ok=True)
+    output_image_dir = os.path.join(output_dir, "images")
+    output_json_dir = os.path.join(output_dir, "metadata")
+    output_html_dir = os.path.join(output_dir, "html")
 
     data_list = []
     with open("data/JSSODa/jssoda_train_img_match.jsonl") as f:
@@ -531,9 +554,19 @@ async def main():
             )
 
             base_filename = content_data["id"]
-            
+            base_dir = base_filename[:-3]
+            os.makedirs(os.path.join(output_html_dir, base_dir), exist_ok=True)
+
             # HTML保存
-            with open(os.path.join(output_dir, f"{base_filename}.html"), "w", encoding="utf-8") as f:
+            with open(
+                os.path.join(
+                    output_html_dir,
+                    base_dir,
+                    f"{base_filename}.html"
+                ),
+                "w",
+                encoding="utf-8"
+            ) as f:
                 f.write(html_content)
 
             await page.set_content(html_content, wait_until="networkidle")
@@ -619,15 +652,13 @@ async def main():
                     let charBoxes = [];
 
                     if (el.tagName === 'FIGURE') {
-                        // === 画像要素 ===
                         const img = el.querySelector('img');
                         if (img) {
                             const imgBoxes = createLineBoxes(img.getClientRects());
                             imgBoxes.forEach(box => box.isImage = true);
                             lineBoxes.push(...imgBoxes);
                         }
-                        
-                        // === キャプション要素 ===
+
                         const figcaption = el.querySelector('figcaption');
                         if (figcaption) {
                             // 1. Line/Block Boxes
@@ -682,7 +713,7 @@ async def main():
                         let maxY = -Infinity;
                         let hasChars = false;
 
-                        // この行(line)に含まれる文字(char)を探して、その包含矩形を計算
+                        // ブロックに含まれる文字(char)を探して、その包含矩形を計算
                         for (let i = 0; i < charBoxes.length; i++) {
                             const c = charBoxes[i];
                             // 厳密な包含ではなく、交差(Intersection)判定で所属を確認
@@ -743,7 +774,8 @@ async def main():
                 final_elements.append(el_copy)
 
             # 画像生成
-            await page.screenshot(path=os.path.join(output_dir, f"{base_filename}.png"), full_page=True)
+            os.makedirs(os.path.join(output_image_dir, base_dir), exist_ok=True)
+            await page.screenshot(path=os.path.join(output_image_dir, base_dir, f"{base_filename}.png"), full_page=True)
 
             title_bboxes = []
             title_char_bboxes = []
@@ -759,7 +791,18 @@ async def main():
                 "title_char_bboxes": title_char_bboxes,
                 "elements": final_elements,
             }
-            with open(os.path.join(output_dir, f"{base_filename}.json"), "w", encoding="utf-8") as f:
+
+            # json保存
+            os.makedirs(os.path.join(output_json_dir, base_dir), exist_ok=True)
+            with open(
+                os.path.join(
+                    output_json_dir,
+                    base_dir,
+                    f"{base_filename}.json"
+                ),
+                "w",
+                encoding="utf-8"
+            ) as f:
                 json.dump(label_data, f, ensure_ascii=False, indent=2)
 
         await browser.close()

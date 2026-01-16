@@ -370,7 +370,7 @@ html_template = """
         margin-inline: auto;
     }
 
-    figcaption { font-size: 0.8em; font-weight: bold; margin-top: 5px; }
+    figcaption { font-size: 0.9em; font-weight: bold; margin-top: 5px; margin-bottom: 5px; line-height: 1.4 }
 
     figure.normal {
         background-color: {{ style.figure_bg_color }};

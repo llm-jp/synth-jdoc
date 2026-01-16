@@ -871,7 +871,7 @@ def main():
     with open(data_file_path) as f:
         for line in f:
             data_list.append(json.loads(line))
-    data_list = data_list[:50]
+    data_list = data_list
 
     size = (len(data_list) + num_processes - 1) // num_processes
     chunks = [data_list[i * size : (i + 1) * size] for i in range(num_processes)]

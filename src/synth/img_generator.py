@@ -469,6 +469,18 @@ async def main():
         template = Template(html_template)
 
         for original_data in tqdm(data_list, desc="Generating images"):
+            base_filename = original_data["id"]
+            base_dir = base_filename[:-3]
+            # skip
+            if all(
+                (
+                    os.path.isfile(os.path.join(output_html_dir, base_dir, f"{base_filename}.html")),
+                    os.path.isfile(os.path.join(output_image_dir, base_dir, f"{base_filename}.png")),
+                    os.path.isfile(os.path.join(output_json_dir, base_dir, f"{base_filename}.json")),
+                )
+            ):
+                continue
+
             # load title
             with open(
                 os.path.join(
@@ -553,11 +565,8 @@ async def main():
                 style=style_config
             )
 
-            base_filename = content_data["id"]
-            base_dir = base_filename[:-3]
-            os.makedirs(os.path.join(output_html_dir, base_dir), exist_ok=True)
-
             # HTML保存
+            os.makedirs(os.path.join(output_html_dir, base_dir), exist_ok=True)
             with open(
                 os.path.join(
                     output_html_dir,

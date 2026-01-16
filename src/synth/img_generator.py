@@ -553,265 +553,270 @@ async def process_chunk(chunk, worker_id, output_dir, image_dir, caption_dir, ti
             )
             page = await context.new_page()
 
-            processed_blocks = preprocess_elements(
-                content_data['elements'], 
-                is_vertical=style_config['is_vertical']
-            )
+            try:
+                processed_blocks = preprocess_elements(
+                    content_data['elements'], 
+                    is_vertical=style_config['is_vertical']
+                )
 
-            html_content = template.render(
-                data=content_data,
-                processed_blocks=processed_blocks,
-                style=style_config
-            )
+                html_content = template.render(
+                    data=content_data,
+                    processed_blocks=processed_blocks,
+                    style=style_config
+                )
 
-            # HTML保存
-            os.makedirs(os.path.join(output_html_dir, base_dir), exist_ok=True)
-            with open(
-                os.path.join(
-                    output_html_dir,
-                    base_dir,
-                    f"{base_filename}.html"
-                ),
-                "w",
-                encoding="utf-8"
-            ) as f:
-                f.write(html_content)
+                # HTML保存
+                os.makedirs(os.path.join(output_html_dir, base_dir), exist_ok=True)
+                with open(
+                    os.path.join(
+                        output_html_dir,
+                        base_dir,
+                        f"{base_filename}.html"
+                    ),
+                    "w",
+                    encoding="utf-8"
+                ) as f:
+                    f.write(html_content)
 
-            await page.set_content(html_content, wait_until="networkidle")
+                await page.set_content(html_content, wait_until="networkidle")
 
-            bboxes_map = await page.evaluate('''() => {
-                const results = {};
-                const rootRect = document.documentElement.getBoundingClientRect();
-                
-                const isInside = (x, y, rect) => {
-                    return (x >= rect.left && x <= rect.right && y >= rect.top && y <= rect.bottom);
-                };
+                bboxes_map = await page.evaluate('''() => {
+                    const results = {};
+                    const rootRect = document.documentElement.getBoundingClientRect();
+                    
+                    const isInside = (x, y, rect) => {
+                        return (x >= rect.left && x <= rect.right && y >= rect.top && y <= rect.bottom);
+                    };
 
-                const createLineBoxes = (rects) => {
-                    const list = [];
-                    for (let i = 0; i < rects.length; i++) {
-                        const r = rects[i];
-                        if (r.width > 0 && r.height > 0) {
-                            list.push({
-                                rawRect: r,
-                                x: r.x - rootRect.x,
-                                y: r.y - rootRect.y,
-                                width: r.width,
-                                height: r.height,
-                                text: ""
-                            });
-                        }
-                    }
-                    return list;
-                };
-                
-                const createCharBoxes = (rootNode) => {
-                    const list = [];
-                    const treeWalker = document.createTreeWalker(rootNode, NodeFilter.SHOW_TEXT, null, false);
-                    let textNode;
-                    while (textNode = treeWalker.nextNode()) {
-                        const str = textNode.nodeValue;
-                        for (let i = 0; i < str.length; i++) {
-                            const range = document.createRange();
-                            range.setStart(textNode, i);
-                            range.setEnd(textNode, i + 1);
-                            const rect = range.getBoundingClientRect();
-                            
-                            if (rect.width > 0 && rect.height > 0) {
+                    const createLineBoxes = (rects) => {
+                        const list = [];
+                        for (let i = 0; i < rects.length; i++) {
+                            const r = rects[i];
+                            if (r.width > 0 && r.height > 0) {
                                 list.push({
-                                    text: str[i],
-                                    x: rect.x - rootRect.x,
-                                    y: rect.y - rootRect.y,
-                                    width: rect.width,
-                                    height: rect.height
+                                    rawRect: r,
+                                    x: r.x - rootRect.x,
+                                    y: r.y - rootRect.y,
+                                    width: r.width,
+                                    height: r.height,
+                                    text: ""
                                 });
                             }
                         }
-                    }
-                    return list;
-                };
-
-                const mapTextToLineBoxes = (rootNode, boxes) => {
-                    const treeWalker = document.createTreeWalker(rootNode, NodeFilter.SHOW_TEXT, null, false);
-                    let textNode;
-                    while (textNode = treeWalker.nextNode()) {
-                        const str = textNode.nodeValue;
-                        for (let i = 0; i < str.length; i++) {
-                            const range = document.createRange();
-                            range.setStart(textNode, i);
-                            range.setEnd(textNode, i + 1);
-                            const charRect = range.getBoundingClientRect();
-                            const cx = charRect.left + charRect.width / 2;
-                            const cy = charRect.top + charRect.height / 2;
-
-                            for (let b = 0; b < boxes.length; b++) {
-                                if (isInside(cx, cy, boxes[b].rawRect)) {
-                                    boxes[b].text += str[i];
-                                    break;
+                        return list;
+                    };
+                    
+                    const createCharBoxes = (rootNode) => {
+                        const list = [];
+                        const treeWalker = document.createTreeWalker(rootNode, NodeFilter.SHOW_TEXT, null, false);
+                        let textNode;
+                        while (textNode = treeWalker.nextNode()) {
+                            const str = textNode.nodeValue;
+                            for (let i = 0; i < str.length; i++) {
+                                const range = document.createRange();
+                                range.setStart(textNode, i);
+                                range.setEnd(textNode, i + 1);
+                                const rect = range.getBoundingClientRect();
+                                
+                                if (rect.width > 0 && rect.height > 0) {
+                                    list.push({
+                                        text: str[i],
+                                        x: rect.x - rootRect.x,
+                                        y: rect.y - rootRect.y,
+                                        width: rect.width,
+                                        height: rect.height
+                                    });
                                 }
                             }
                         }
-                    }
-                };
+                        return list;
+                    };
 
-                document.querySelectorAll('[data-id]').forEach(el => {
-                    const id = el.getAttribute('data-id');
-                    let lineBoxes = [];
-                    let charBoxes = [];
+                    const mapTextToLineBoxes = (rootNode, boxes) => {
+                        const treeWalker = document.createTreeWalker(rootNode, NodeFilter.SHOW_TEXT, null, false);
+                        let textNode;
+                        while (textNode = treeWalker.nextNode()) {
+                            const str = textNode.nodeValue;
+                            for (let i = 0; i < str.length; i++) {
+                                const range = document.createRange();
+                                range.setStart(textNode, i);
+                                range.setEnd(textNode, i + 1);
+                                const charRect = range.getBoundingClientRect();
+                                const cx = charRect.left + charRect.width / 2;
+                                const cy = charRect.top + charRect.height / 2;
 
-                    if (el.tagName === 'FIGURE') {
-                        const img = el.querySelector('img');
-                        if (img) {
-                            const imgBoxes = createLineBoxes(img.getClientRects());
-                            imgBoxes.forEach(box => box.isImage = true);
-                            lineBoxes.push(...imgBoxes);
+                                for (let b = 0; b < boxes.length; b++) {
+                                    if (isInside(cx, cy, boxes[b].rawRect)) {
+                                        boxes[b].text += str[i];
+                                        break;
+                                    }
+                                }
+                            }
+                        }
+                    };
+
+                    document.querySelectorAll('[data-id]').forEach(el => {
+                        const id = el.getAttribute('data-id');
+                        let lineBoxes = [];
+                        let charBoxes = [];
+
+                        if (el.tagName === 'FIGURE') {
+                            const img = el.querySelector('img');
+                            if (img) {
+                                const imgBoxes = createLineBoxes(img.getClientRects());
+                                imgBoxes.forEach(box => box.isImage = true);
+                                lineBoxes.push(...imgBoxes);
+                            }
+
+                            const figcaption = el.querySelector('figcaption');
+                            if (figcaption) {
+                                // 1. Line/Block Boxes
+                                const range = document.createRange();
+                                range.selectNodeContents(figcaption);
+                                const capLineBoxes = createLineBoxes(range.getClientRects());
+                                mapTextToLineBoxes(figcaption, capLineBoxes);
+
+                                // 行統合処理
+                                if (capLineBoxes.length > 0) {
+                                    let minX = Infinity, minY = Infinity;
+                                    let maxX = -Infinity, maxY = -Infinity;
+                                    let combinedText = "";
+
+                                    capLineBoxes.forEach(box => {
+                                        if (box.x < minX) minX = box.x;
+                                        if (box.y < minY) minY = box.y;
+                                        if (box.x + box.width > maxX) maxX = box.x + box.width;
+                                        if (box.y + box.height > maxY) maxY = box.y + box.height;
+                                        combinedText += box.text;
+                                    });
+
+                                    lineBoxes.push({
+                                        x: minX,
+                                        y: minY,
+                                        width: maxX - minX,
+                                        height: maxY - minY,
+                                        text: combinedText
+                                    });
+                                }
+                                
+                                // 2. Char Boxes
+                                charBoxes = createCharBoxes(figcaption);
+                            }
+                        } else {
+                            // 1. Line/Block Boxes
+                            lineBoxes = createLineBoxes(el.getClientRects());
+                            mapTextToLineBoxes(el, lineBoxes);
+                            
+                            // 2. Char Boxes
+                            charBoxes = createCharBoxes(el);
                         }
 
-                        const figcaption = el.querySelector('figcaption');
-                        if (figcaption) {
-                            // 1. Line/Block Boxes
-                            const range = document.createRange();
-                            range.selectNodeContents(figcaption);
-                            const capLineBoxes = createLineBoxes(range.getClientRects());
-                            mapTextToLineBoxes(figcaption, capLineBoxes);
+                        lineBoxes = lineBoxes.map(line => {
+                            if (line.isImage) {
+                                return line;
+                            }
 
-                            // 行統合処理
-                            if (capLineBoxes.length > 0) {
-                                let minX = Infinity, minY = Infinity;
-                                let maxX = -Infinity, maxY = -Infinity;
-                                let combinedText = "";
+                            let minX = Infinity;
+                            let minY = Infinity;
+                            let maxX = -Infinity;
+                            let maxY = -Infinity;
+                            let hasChars = false;
 
-                                capLineBoxes.forEach(box => {
-                                    if (box.x < minX) minX = box.x;
-                                    if (box.y < minY) minY = box.y;
-                                    if (box.x + box.width > maxX) maxX = box.x + box.width;
-                                    if (box.y + box.height > maxY) maxY = box.y + box.height;
-                                    combinedText += box.text;
-                                });
+                            // ブロックに含まれる文字(char)を探して、その包含矩形を計算
+                            for (let i = 0; i < charBoxes.length; i++) {
+                                const c = charBoxes[i];
+                                // 厳密な包含ではなく、交差(Intersection)判定で所属を確認
+                                const intersects = (
+                                    c.x < line.x + line.width &&
+                                    c.x + c.width > line.x &&
+                                    c.y < line.y + line.height &&
+                                    c.y + c.height > line.y
+                                );
 
-                                lineBoxes.push({
+                                if (intersects) {
+                                    hasChars = true;
+                                    if (c.x < minX) minX = c.x;
+                                    if (c.y < minY) minY = c.y;
+                                    if (c.x + c.width > maxX) maxX = c.x + c.width;
+                                    if (c.y + c.height > maxY) maxY = c.y + c.height;
+                                }
+                            }
+
+                            // 対応する文字が見つかった場合のみ座標を更新
+                            if (hasChars) {
+                                return {
+                                    ...line, // 元のプロパティ(textなど)を維持
                                     x: minX,
                                     y: minY,
                                     width: maxX - minX,
-                                    height: maxY - minY,
-                                    text: combinedText
-                                });
+                                    height: maxY - minY
+                                };
                             }
                             
-                            // 2. Char Boxes
-                            charBoxes = createCharBoxes(figcaption);
-                        }
-                    } else {
-                        // 1. Line/Block Boxes
-                        lineBoxes = createLineBoxes(el.getClientRects());
-                        mapTextToLineBoxes(el, lineBoxes);
-                        
-                        // 2. Char Boxes
-                        charBoxes = createCharBoxes(el);
-                    }
-
-                    lineBoxes = lineBoxes.map(line => {
-                        if (line.isImage) {
+                            // 文字が見つからない（スペースのみの行など）場合は元のまま返す
                             return line;
-                        }
+                        });
 
-                        let minX = Infinity;
-                        let minY = Infinity;
-                        let maxX = -Infinity;
-                        let maxY = -Infinity;
-                        let hasChars = false;
-
-                        // ブロックに含まれる文字(char)を探して、その包含矩形を計算
-                        for (let i = 0; i < charBoxes.length; i++) {
-                            const c = charBoxes[i];
-                            // 厳密な包含ではなく、交差(Intersection)判定で所属を確認
-                            const intersects = (
-                                c.x < line.x + line.width &&
-                                c.x + c.width > line.x &&
-                                c.y < line.y + line.height &&
-                                c.y + c.height > line.y
-                            );
-
-                            if (intersects) {
-                                hasChars = true;
-                                if (c.x < minX) minX = c.x;
-                                if (c.y < minY) minY = c.y;
-                                if (c.x + c.width > maxX) maxX = c.x + c.width;
-                                if (c.y + c.height > maxY) maxY = c.y + c.height;
-                            }
-                        }
-
-                        // 対応する文字が見つかった場合のみ座標を更新
-                        if (hasChars) {
-                            return {
-                                ...line, // 元のプロパティ(textなど)を維持
-                                x: minX,
-                                y: minY,
-                                width: maxX - minX,
-                                height: maxY - minY
-                            };
-                        }
-                        
-                        // 文字が見つからない（スペースのみの行など）場合は元のまま返す
-                        return line;
+                        results[id] = {
+                            lines: lineBoxes.map(({rawRect, isImage, ...rest}) => rest),
+                            chars: charBoxes
+                        };
                     });
+                    return results;
+                }''')
 
-                    results[id] = {
-                        lines: lineBoxes.map(({rawRect, isImage, ...rest}) => rest),
-                        chars: charBoxes
-                    };
-                });
-                return results;
-            }''')
+                final_elements = []
+                for i, el in enumerate(original_data['elements']):
+                    el_copy = el.copy()
 
-            final_elements = []
-            for i, el in enumerate(original_data['elements']):
-                el_copy = el.copy()
+                    if str(i) in bboxes_map:
+                        bbox_data = bboxes_map[str(i)]
+                        el_copy['bboxes'] = bbox_data.get('lines', [])
+                        el_copy['char_bboxes'] = bbox_data.get('chars', [])
+                    else:
+                        el_copy['bboxes'] = []
+                        el_copy['char_bboxes'] = []
+                    
+                    if el_copy['type'] == 'image':
+                        el_copy['caption'] = caption_dict[el_copy['src']]
 
-                if str(i) in bboxes_map:
-                    bbox_data = bboxes_map[str(i)]
-                    el_copy['bboxes'] = bbox_data.get('lines', [])
-                    el_copy['char_bboxes'] = bbox_data.get('chars', [])
-                else:
-                    el_copy['bboxes'] = []
-                    el_copy['char_bboxes'] = []
-                
-                if el_copy['type'] == 'image':
-                    el_copy['caption'] = caption_dict[el_copy['src']]
+                    final_elements.append(el_copy)
 
-                final_elements.append(el_copy)
+                # 画像生成
+                os.makedirs(os.path.join(output_image_dir, base_dir), exist_ok=True)
+                await page.screenshot(path=os.path.join(output_image_dir, base_dir, f"{base_filename}.png"), full_page=True)
 
-            # 画像生成
-            os.makedirs(os.path.join(output_image_dir, base_dir), exist_ok=True)
-            await page.screenshot(path=os.path.join(output_image_dir, base_dir, f"{base_filename}.png"), full_page=True)
+                title_bboxes = []
+                title_char_bboxes = []
+                if "title" in bboxes_map:
+                    title_bboxes = bboxes_map["title"].get("lines", [])
+                    title_char_bboxes = bboxes_map["title"].get("chars", [])
 
-            title_bboxes = []
-            title_char_bboxes = []
-            if "title" in bboxes_map:
-                title_bboxes = bboxes_map["title"].get("lines", [])
-                title_char_bboxes = bboxes_map["title"].get("chars", [])
+                label_data = {
+                    "id": base_filename,
+                    "style": style_config,
+                    "title": content_data["title"],
+                    "title_bboxes": title_bboxes,
+                    "title_char_bboxes": title_char_bboxes,
+                    "elements": final_elements,
+                }
 
-            label_data = {
-                "id": base_filename,
-                "style": style_config,
-                "title": content_data["title"],
-                "title_bboxes": title_bboxes,
-                "title_char_bboxes": title_char_bboxes,
-                "elements": final_elements,
-            }
+                # json保存
+                os.makedirs(os.path.join(output_json_dir, base_dir), exist_ok=True)
+                with open(
+                    os.path.join(
+                        output_json_dir,
+                        base_dir,
+                        f"{base_filename}.json"
+                    ),
+                    "w",
+                    encoding="utf-8"
+                ) as f:
+                    json.dump(label_data, f, ensure_ascii=False, indent=2)
 
-            # json保存
-            os.makedirs(os.path.join(output_json_dir, base_dir), exist_ok=True)
-            with open(
-                os.path.join(
-                    output_json_dir,
-                    base_dir,
-                    f"{base_filename}.json"
-                ),
-                "w",
-                encoding="utf-8"
-            ) as f:
-                json.dump(label_data, f, ensure_ascii=False, indent=2)
+            finally:
+                await page.close()
+                await context.close()
 
             pbar.update(1)
 

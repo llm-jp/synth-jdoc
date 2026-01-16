@@ -370,7 +370,7 @@ html_template = """
         margin-inline: auto;
     }
 
-    figcaption { font-size: 0.9em; font-weight: bold; margin-top: 5px; margin-bottom: 5px; line-height: 1.4 }
+    figcaption { font-size: 0.9em; margin-top: 5px; margin-bottom: 5px; line-height: 1.4 }
 
     figure.normal {
         background-color: {{ style.figure_bg_color }};
@@ -871,7 +871,6 @@ def main():
     with open(data_file_path) as f:
         for line in f:
             data_list.append(json.loads(line))
-    data_list = data_list
 
     size = (len(data_list) + num_processes - 1) // num_processes
     chunks = [data_list[i * size : (i + 1) * size] for i in range(num_processes)]

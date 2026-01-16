@@ -1,4 +1,5 @@
 import asyncio
+import argparse
 import re
 import random
 import json
@@ -7,6 +8,8 @@ import unicodedata
 import copy
 import base64
 import mimetypes
+import multiprocessing
+from concurrent.futures import ProcessPoolExecutor, as_completed
 
 from tqdm import tqdm
 from playwright.async_api import async_playwright
@@ -447,28 +450,24 @@ html_template = """
 """
 
 
-async def main():
-    output_dir = "data/JSSODa/export"
-    image_dir = "data/JSSODa/images"
-    caption_dir = "data/JSSODa/captions"
-    title_dir = "data/JSSODa/titles"
-
+async def process_chunk(chunk, worker_id, output_dir, image_dir, caption_dir, title_dir):
     output_image_dir = os.path.join(output_dir, "images")
     output_json_dir = os.path.join(output_dir, "metadata")
     output_html_dir = os.path.join(output_dir, "html")
 
-    data_list = []
-    with open("data/JSSODa/jssoda_train_img_match.jsonl") as f:
-        for line in f:
-            data_list.append(json.loads(line))
-    data_list = data_list[:50]
+    pbar = tqdm(
+        total=len(chunk), 
+        desc=f"Worker {worker_id}: ", 
+        position=worker_id, 
+        leave=True
+    )
 
     async with async_playwright() as p:
         browser = await p.chromium.launch()
 
         template = Template(html_template)
 
-        for original_data in tqdm(data_list, desc="Generating images"):
+        for original_data in chunk:
             base_filename = original_data["id"]
             base_dir = base_filename[:-3]
             # skip
@@ -814,8 +813,88 @@ async def main():
             ) as f:
                 json.dump(label_data, f, ensure_ascii=False, indent=2)
 
+            pbar.update(1)
+
+        pbar.close()
         await browser.close()
 
 
+def run_worker(chunk, worker_id, output_dir, image_dir, caption_dir, title_dir):
+    return asyncio.run(process_chunk(chunk, worker_id, output_dir, image_dir, caption_dir, title_dir))
+
+
+def make_args():
+    parser = argparse.ArgumentParser()
+    parser.add_argument(
+        "--data_file_path",
+        type=str,
+        default="data/JSSODa/jssoda_train_img_match.jsonl",
+    )
+    parser.add_argument(
+        "--output_dir",
+        type=str,
+        default="data/JSSODa/export",
+    )
+    parser.add_argument(
+        "--image_dir",
+        type=str,
+        default="data/JSSODa/images",
+    )
+    parser.add_argument(
+        "--caption_dir",
+        type=str,
+        default="data/JSSODa/captions",
+    )
+    parser.add_argument(
+        "--title_dir",
+        type=str,
+        default="data/JSSODa/titles",
+    )
+    parser.add_argument(
+        "--num_processes",
+        type=int,
+        default=multiprocessing.cpu_count() // 2,
+    )
+    return parser.parse_args()
+
+
+def main():
+    args = make_args()
+    data_file_path = args.data_file_path
+    output_dir = args.output_dir
+    image_dir = args.image_dir
+    caption_dir = args.caption_dir
+    title_dir = args.title_dir
+    num_processes = args.num_processes
+
+    data_list = []
+    with open(data_file_path) as f:
+        for line in f:
+            data_list.append(json.loads(line))
+    data_list = data_list[:50]
+
+    size = (len(data_list) + num_processes - 1) // num_processes
+    chunks = [data_list[i * size : (i + 1) * size] for i in range(num_processes)]
+
+    with ProcessPoolExecutor(max_workers=num_processes) as executor:
+        futures = [
+            executor.submit(
+                run_worker,
+                chunk,
+                i,
+                output_dir,
+                image_dir,
+                caption_dir,
+                title_dir,
+            ) for i, chunk in enumerate(chunks)
+        ]
+
+        for future in as_completed(futures):
+            try:
+                future.result()
+            except Exception as e:
+                print(f"Worker generated an exception: {e}")
+
+
 if __name__ == "__main__":
-    asyncio.run(main())
+    main()

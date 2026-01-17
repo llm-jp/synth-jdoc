@@ -478,6 +478,7 @@ async def process_chunk(chunk, worker_id, output_dir, image_dir, caption_dir, ti
                     os.path.isfile(os.path.join(output_json_dir, base_dir, f"{base_filename}.json")),
                 )
             ):
+                pbar.update(1)
                 continue
 
             # load title

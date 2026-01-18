@@ -39,7 +39,6 @@ def apply_paper_texture(image, intensity=0.1):
 
     # ガウシアンノイズ
     noise = rng.normal(0, 10, (h, w, c)).astype(np.float32)
-    print(noise)
 
     noisy_image = base.astype(np.float32) + noise * intensity
 
@@ -275,7 +274,7 @@ def main():
 
     os.makedirs(output_dir, exist_ok=True)
 
-    image_paths = sorted(glob(os.path.join(input_dir, "**", "*.png"), recursive=True))[:1]
+    image_paths = sorted(glob(os.path.join(input_dir, "**", "*.png"), recursive=True))
 
     length = len(image_paths)
     with ProcessPoolExecutor(max_workers=num_processes) as executor:

@@ -75,10 +75,10 @@ def apply_perspective_transform(image, magnitude=10, bg_color=(255, 255, 255)):
     
     # 移動後の4点（ランダムに少しずらす）
     deltas = [
-        [random.randint(0, magnitude), random.randint(0, magnitude)],
-        [random.randint(0, magnitude), random.randint(0, magnitude)],
-        [random.randint(0, magnitude), random.randint(0, magnitude)],
-        [random.randint(0, magnitude), random.randint(0, magnitude)]
+        [random.randint(-magnitude//2, magnitude), random.randint(-magnitude//2, magnitude)],
+        [random.randint(-magnitude//2, magnitude), random.randint(-magnitude//2, magnitude)],
+        [random.randint(-magnitude//2, magnitude), random.randint(-magnitude//2, magnitude)],
+        [random.randint(-magnitude//2, magnitude), random.randint(-magnitude//2, magnitude)]
     ]
     dst_pts = np.float32([
         [deltas[0][0], deltas[0][1]],

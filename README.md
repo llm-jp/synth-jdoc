@@ -3,5 +3,4 @@
 ```bash
 uv sync
 source .venv/bin/activate
-playwright install chromium
 ```

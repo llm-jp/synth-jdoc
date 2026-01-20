@@ -1,6 +1,7 @@
 import os
 import random
 import argparse
+import colorsys
 from glob import glob
 from concurrent.futures import ProcessPoolExecutor
 
@@ -8,6 +9,20 @@ import cv2
 import matplotlib.font_manager
 from tqdm import tqdm
 from augraphy import *
+
+
+def get_hsv_vibrant_color():
+    h = random.random()
+    s = random.uniform(0.5, 0.8)
+    v = 1.0
+
+    r, g, b = colorsys.hsv_to_rgb(h, s, v)
+
+    r = int(r * 255)
+    g = int(g * 255)
+    b = int(b * 255)
+
+    return (b, g, r)
 
 
 def make_pipeline():
@@ -28,6 +43,7 @@ def make_pipeline():
 
     paper_phase = [
         ColorPaper(
+            hue_range=(28, 45),
             saturation_range=(10, 40),
             p=0.666,
         ),
@@ -45,12 +61,12 @@ def make_pipeline():
                     imgx=random.randint(256, 512),
                     imgy=random.randint(256, 512),
                     n_rotation_range=(10, 15),
-                    color="random",
+                    color=(random.randint(0, 255), random.randint(0, 255), random.randint(0, 255)),
                     alpha_range=(0.25, 0.5),
                 ),
                 VoronoiTessellation(
                     mult_range=(50, 80),
-                    seed=19829813472,
+                    seed=random.randint(0, 2**32 - 1),
                     num_cells_range=(500, 1000),
                     noise_type="random",
                     background_value=(200, 255),
@@ -63,6 +79,8 @@ def make_pipeline():
                 NoiseTexturize(
                     sigma_range=(3, 10),
                     turbulence_range=(2, 5),
+                    texture_width_range=(100, 500),
+                    texture_height_range=(100, 500),
                     p=0.8,
                 ),
                 BrightnessTexturize(
@@ -103,31 +121,35 @@ def make_pipeline():
                 Markup(
                     num_lines_range=(2, 7),
                     markup_length_range=(0.5, 1),
-                    markup_thickness_range=(1, 2),
+                    markup_thickness_range=(1, 1),
                     markup_type=random.choice(["strikethrough", "crossed", "highlight", "underline"]),
-                    markup_color="random",
+                    markup_ink=random.choice(["pencil", "pen", "marker", "highlighter"]),
+                    markup_color=get_hsv_vibrant_color(),
+                    large_word_mode=random.choice([True, False]),
                     single_word_mode=False,
                     repetitions=1,
                 ),
                 Scribbles(
-                    scribbles_type="random",
+                    scribbles_type=random.choice(["lines", "texts"]),
+                    scribbles_ink=random.choice(["pencil", "pen", "marker", "highlighter"]),
                     scribbles_location="random",
-                    scribbles_size_range=(250, 350),
+                    scribbles_size_range=(200, 350),
                     scribbles_count_range=(1, 6),
-                    scribbles_thickness_range=(1, 2),
+                    scribbles_thickness_range=(1, 1),
                     scribbles_brightness_change=[32, 64, 128],
+                    scribbles_color=get_hsv_vibrant_color(),
                     scribbles_text="random",
                     scribbles_text_font="random",
                     scribbles_text_rotate_range=(0, 360),
                     scribbles_lines_stroke_count_range=(1, 4),
                 ),
             ],
-            p=0.666,
+            p=0.5,
         ),
         OneOf(
             [
                 ShadowCast(
-                    shadow_side="random",
+                    shadow_side=random.choice(["left", "right", "top", "bottom"]),
                 ),
                 LightingGradient(
                     light_position=None,
@@ -141,10 +163,10 @@ def make_pipeline():
         Folding(
             fold_count=random.choice((1, 2)),
             fold_noise=0.0,
-            fold_angle_range = (-360,360),
+            fold_angle_range=(-360, 360),
             gradient_width=(0.05, 0.15),
             gradient_height=(0.005, 0.015),
-            backdrop_color = (0,0,0),
+            backdrop_color=(random.randint(0, 10), random.randint(0, 10), random.randint(0, 10)),
             p=0.333,
         ),
     ]
@@ -153,7 +175,7 @@ def make_pipeline():
         ink_phase=ink_phase,
         paper_phase=paper_phase,
         post_phase=post_phase,
-        overlay_alpha=1.0,
+        overlay_alpha=0.3,
         fixed_dpi=True,
     )
 

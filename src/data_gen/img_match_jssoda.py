@@ -1,6 +1,7 @@
 import os
 import random
 import json
+import argparse
 
 import numpy as np
 from scipy.optimize import linear_sum_assignment
@@ -43,9 +44,37 @@ def match_images_to_texts(data, seed: int = None) -> tuple[dict[str, int | float
     return matches, total_distance
 
 
+def make_args():
+    parser = argparse.ArgumentParser()
+    parser.add_argument(
+        "--split",
+        type=str,
+        default="train",
+    )
+    parser.add_argument(
+        "--input_file_path",
+        type=str,
+        default="data/JSSODa/jssoda_train_text_elements.jsonl",
+    )
+    parser.add_argument(
+        "--output_dir",
+        type=str,
+        default="data/JSSODa/",
+    )
+    return parser.parse_args()
+
+
 def main():
+    args = make_args()
+    data_split = args.split
+    input_file_path = args.input_file_path
+    output_dir = args.output_dir
+
+    output_path = os.path.join(output_dir, f"jssoda_{data_split}_img_match.jsonl")
+    assert not os.path.isfile(output_path)
+
     data_list = []
-    with open("data/JSSODa/jssoda_train_text_elements.jsonl") as f:
+    with open(input_file_path) as f:
         for line in f:
             data_list.append(json.loads(line))
 
@@ -68,12 +97,10 @@ def main():
         for p in pairs:
             data["elements"][p["image_index"]]["text_index"] = p["text_index"]
 
-
-    output_dir = "data/JSSODa/"
     os.makedirs(output_dir, exist_ok=True)
 
     json_str = "\n".join([json.dumps(d, ensure_ascii=False, separators=(",", ":")) for d in data_list]) + "\n"
-    with open(os.path.join(output_dir, "jssoda_train_img_match.jsonl"), "w", encoding="utf-8") as f:
+    with open(output_path, "w", encoding="utf-8") as f:
         f.write(json_str)
 
 

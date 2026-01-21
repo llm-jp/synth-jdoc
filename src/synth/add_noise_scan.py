@@ -278,7 +278,7 @@ def main():
 
     length = len(image_paths)
     with ProcessPoolExecutor(max_workers=num_processes) as executor:
-        tqdm(
+        list(tqdm(
             executor.map(
                 run,
                 image_paths,
@@ -287,7 +287,7 @@ def main():
             ),
             total=length,
             desc="Adding noise",
-        )
+        ))
 
 
 if __name__ == "__main__":

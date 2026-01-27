@@ -1,5 +1,8 @@
 data/
 logs/
+checkpoints/
+wandb/
+output_vjroda/
 
 # Byte-compiled / optimized / DLL files
 __pycache__/

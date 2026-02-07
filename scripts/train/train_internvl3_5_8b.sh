@@ -16,7 +16,7 @@ source .venv/bin/activate
 deepspeed --num_gpus 8 src/train/train_internvl3_5.py \
     --model_name OpenGVLab/InternVL3_5-8B-HF \
     --revision 741a7d03020411e666c6109218ab71e08151ef86 \
-    --output_dir /groups/gcg51557/experiments/0302_synth_html/checkpoints/InternVL3_5-8B-HF-HTML_Synth-train \
+    --output_dir ./checkpoints/InternVL3_5-8B-HF-HTML_Synth-train \
     --deepspeed ./scripts/train/zero2.json \
     --seed 42 \
     --learning_rate 2e-05 \

@@ -16,7 +16,7 @@ source .venv/bin/activate
 deepspeed --num_gpus 8 src/train/jssoda/train_qwen3vl_jssoda.py \
     --model_name Qwen/Qwen3-VL-8B-Instruct \
     --revision 0c351dd01ed87e9c1b53cbc748cba10e6187ff3b \
-    --output_dir /groups/gcg51557/experiments/0302_synth_html/checkpoints/Qwen3-VL-8B-Instruct-JSSODa-train \
+    --output_dir ./checkpoints/Qwen3-VL-8B-Instruct-JSSODa-train \
     --deepspeed ./scripts/train/zero2.json \
     --seed 42 \
     --learning_rate 2e-05 \

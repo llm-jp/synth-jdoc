@@ -8,6 +8,7 @@ dependencies = [
     "deepspeed==0.18.4",
     "diffusers",
     "flash-attn",
+    "google-genai==1.62.0",
     "jinja2==3.1.6",
     "kanjize==1.6.1",
     "opencv-python==4.12.0.88",

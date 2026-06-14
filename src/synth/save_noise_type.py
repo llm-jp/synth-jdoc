@@ -5,7 +5,7 @@ NUM_PROC = 4
 
 
 def main():
-    dataset = load_dataset("ssgw-keito/HTML-Synth-OCR-JA", split="train", num_proc=NUM_PROC)
+    dataset = load_dataset("llm-jp/Synth-JDoc", split="train", num_proc=NUM_PROC)
 
     noise_type_1 = []
     noise_type_2 = []

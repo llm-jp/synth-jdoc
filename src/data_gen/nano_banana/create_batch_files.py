@@ -11,7 +11,7 @@ BATCH_SIZE = 500
 
 def main():
     os.makedirs(OUTPUT_DIR, exist_ok=True)
-    dataset = load_dataset("<user_id>/HTML-Synth-OCR-JA", split="train")
+    dataset = load_dataset("llm-jp/Synth-JDoc", split="train")
 
     for start_idx in tqdm(range(0, len(dataset), BATCH_SIZE)):
         request_list = []

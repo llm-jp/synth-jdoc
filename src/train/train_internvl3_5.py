@@ -122,7 +122,7 @@ def main():
         return batch
 
 
-    dataset = load_dataset("ssgw-keito/HTML-Synth-OCR-JA", split="train")
+    dataset = load_dataset("llm-jp/Synth-JDoc", split="train")
 
     trainer = SFTTrainer(
         model=model,

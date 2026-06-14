@@ -1,12 +1,19 @@
 # Synth-JDoc
 
-This is the official repository for the paper "[Synth-JDoc: Synthesizing a Japanese Document Image Dataset for OCR with Diverse Layouts and Embedded Images]()".
+[Paper]() | [Dataset](https://huggingface.co/datasets/llm-jp/Synth-JDoc)
 
-## Introduction
+**Synth-JDoc** is a dataset of Japanese synthetic document images generated using HTML/CSS.
 
+We generate embedded images, captions, and titles from prepared text, and use these elements to synthesize document images featuring diverse multi-column layouts in both vertical and horizontal writing.
+
+Because the document images are synthesized directly from text, this dataset is completely free from OCR errors.
+
+![Construction Pipeline](./figs/overview_method.jpg)
 
 ## Release
 
+- Dataset: [llm-jp/Synth-JDoc](https://huggingface.co/datasets/llm-jp/Synth-JDoc)
+- Paper: [Synth-JDoc: Synthesizing a Japanese Document Image Dataset for OCR with Diverse Layouts and Embedded Images]()
 
 ## Usage
 

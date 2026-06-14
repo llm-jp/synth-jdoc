@@ -106,6 +106,7 @@ The code to evaluate each model is located in the `src/test` directory. Files wi
 
 ## License
 
+The code is released under the [Apache License, Version 2.0](https://www.apache.org/licenses/LICENSE-2.0).
 
 ## Citation
 

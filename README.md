@@ -4,6 +4,8 @@
 
 **Synth-JDoc** is a dataset of Japanese synthetic document images generated using HTML/CSS.
 
+![Examples from Synth-JDoc](./figs/example_img.jpg)
+
 We generate embedded images, captions, and titles from prepared text, and use these elements to synthesize document images featuring diverse multi-column layouts in both vertical and horizontal writing.
 
 Because the document images are synthesized directly from text, this dataset is completely free from OCR errors.

@@ -1,6 +1,6 @@
 # Synth-JDoc
 
-[Paper]() | [Dataset](https://huggingface.co/datasets/llm-jp/Synth-JDoc)
+[Paper](https://link.springer.com/chapter/10.1007/978-3-032-36033-5_15) | [Dataset](https://huggingface.co/datasets/llm-jp/Synth-JDoc)
 
 **Synth-JDoc** is a dataset of Japanese synthetic document images generated using HTML/CSS.
 
@@ -15,7 +15,7 @@ Because the document images are synthesized directly from text, this dataset is 
 ## Release
 
 - Dataset: [llm-jp/Synth-JDoc](https://huggingface.co/datasets/llm-jp/Synth-JDoc)
-- Paper: [Synth-JDoc: Synthesizing a Japanese Document Image Dataset for OCR with Diverse Layouts and Embedded Images]()
+- Paper: [Synth-JDoc: Synthesizing a Japanese Document Image Dataset for OCR with Diverse Layouts and Embedded Images](https://link.springer.com/chapter/10.1007/978-3-032-36033-5_15)
 
 ## Usage
 
@@ -111,5 +111,21 @@ The code is released under the [Apache License, Version 2.0](https://www.apache.
 ## Citation
 
 ```
-
+@InProceedings{10.1007/978-3-032-36033-5_15,
+author="Sasagawa, Keito
+and Kurita, Shuhei
+and Kawahara, Daisuke",
+editor="Fink, Gernot A.
+and Forn{\'e}s, Alicia
+and Kise, Koichi
+and Lopresti, Daniel",
+title="Synth-JDoc: Synthesizing a Japanese Document Image Dataset for OCR with Diverse Layouts and Embedded Images",
+booktitle="Document Analysis and Recognition -- ICDAR 2026",
+year="2027",
+publisher="Springer Nature Switzerland",
+address="Cham",
+pages="245--260",
+abstract="The ability of Large Vision Language Models (LVLMs) to read text within document images is crucial, as it enables various applications such as Document Visual Question Answering. To enhance the text-reading capabilities of LVLMs, high-quality OCR datasets are essential. This need is particularly critical for Japanese documents, which often feature vertically written text alongside horizontally written text. Current LVLMs demonstrate considerably lower performance on vertically written Japanese text than on horizontally written text, necessitating specialized OCR datasets to bridge this gap. However, manually constructing OCR datasets is expensive and difficult to scale. Alternatively, constructing datasets by extracting text from existing document images using OCR models introduces challenges, such as text recognition errors and the prerequisite of sourcing document images.",
+isbn="978-3-032-36033-5"
+}
 ```
